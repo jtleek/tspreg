@@ -1,0 +1,21 @@
+Package: tspreg
+Title: Top scoring pairs regression
+Description: This package can be used to create top-scoring pairs classifiers.
+    The idea is to use comparisons between features as the inputs into the
+    regression models. These inputs are invariant to monotone transformations
+    of the feature vectors and are measured on a fixed scale - allowing for
+    integration of multiple data types.
+Version: 0.1
+Author: Jeff Leek <jtleek@gmail.com>
+Maintainer: Jeff Leek <jtleek@gmail.com>
+Depends:
+    genefilter,survHD,
+    R (>= 3.0.1)
+License: GPL (>=2)
+LazyData: true
+Collate:
+    'calcPairs.r'
+    'calcStats.r'
+    'calculateTspairs.r'
+    'tspreg-package.r'
+    'tspreg.r'

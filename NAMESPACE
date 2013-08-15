@@ -1,0 +1,4 @@
+export(calcPairs)
+export(calcStats)
+export(calculateTspairs)
+export(tspreg)
