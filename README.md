@@ -66,7 +66,7 @@ predict(modelFit,newdata=validationPredictors$pairMat) > 0.5
 Citation
 ======
 
-Please use the following to find citations for the tspreg package `citation("tspreg").
+Please use the following to find citations for the tspreg package `citation("tspreg")`.
 
 
 
