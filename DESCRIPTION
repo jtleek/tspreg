@@ -19,3 +19,4 @@ Collate:
     'calculateTspairs.r'
     'tspreg-package.r'
     'tspreg.r'
+    'fstats.R'
