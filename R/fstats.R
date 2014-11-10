@@ -32,15 +32,15 @@ fstats <- function(dat,mod,mod0=NULL){
   resid <- dat %*% (Id - mod %*% solve(t(mod) %*% mod) %*% t(mod))
   rss1 <- rowSums(resid*resid)
   rm(resid)
-  gc()
+  #gc()
   
   resid0 <- dat %*% (Id - mod0 %*% solve(t(mod0) %*% mod0) %*% t(mod0))
   rss0 <- rowSums(resid0*resid0)
   rm(resid0)
-  gc()
+  #gc()
   
   fstats <- ((rss0 - rss1)/(df1-df0))/(rss1/(n-df1))
   rm(rss0,rss1)
-  gc()
+  #gc()
   return(fstats)
 }
