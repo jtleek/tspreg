@@ -33,19 +33,3 @@ empirical_controls = function(exprs, n=25){
   
   all_pairs
 }
-
-# Make pairs out of two vectors of rownames (convenience function)
-
-make_pairs <- function(rn_min, rn_max, mat, n){
-        tmp <- matrix(NA, n*n, ncol(mat))
-        rn_tmp <- vector("character", n*n)
-        for(j in 1:length(rn_max)){
-                for(k in 1:length(rn_min)){
-                        tmp[(n*(j-1) + k),] <- mat[rn_min[k],] < mat[rn_max[j],]
-                        rn_tmp[(n*(j-1) + k)] <- paste0(rn_min[k], "<", rn_max[j])
-                }
-        }
-        tmp <- ifelse(tmp, 1, 0)
-        rownames(tmp) <- rn_tmp
-        tmp
-}
