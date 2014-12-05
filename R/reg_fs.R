@@ -19,7 +19,7 @@ reg_fs <- function(pairmat, outcome, covar=NULL, npair=5){
 	# Covariates are always accounted for
 	if(!is.null(covar)){
 		if(nrow(covar) != ncol(pairmat)){
-			error("covar and pairmat must have agreeing dimensions.")
+			stop("covar and pairmat must have agreeing dimensions.")
 		}
 		outmat <- cbind(outcome, covar)
 	} else {
@@ -27,13 +27,9 @@ reg_fs <- function(pairmat, outcome, covar=NULL, npair=5){
 	}
 
 	if(ncol(pairmat) != length(outcome)){
-		error("pairmat and outcome must have agreeing dimensions.")
+		stop("pairmat and outcome must have agreeing dimensions.")
 	}
 	
-	if(!is.integer(npair)){
-		error("npair must be an integer")
-	}
-
 	tpm <- pairmat # temp copy
 	pairs <- vector("integer", npair)
 	# Initial step is for best overall pair
