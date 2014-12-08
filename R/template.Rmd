@@ -1,0 +1,123 @@
+Building a model using tspreg...
+
+```{r initialize}
+set.seed(47209)
+## Loading necessary libraries
+library(rpart)
+library(tspreg)
+library(rattle)
+library(pROC)
+library(genefilter)
+source("~/code/reg_fs.R")
+source("~/code/empirical_controls.R")
+source("~/code/fstats.R")
+source("~/code/make_pairs.R")
+source("~/code/single_pairs.R")
+```
+
+```{r build}
+if(is.null(val)){
+	## Split data into 3/4 train, 1/4 test
+	idx <- sample(1:ncol(data), ncol(data)/4)
+	train <- data[,-idx]
+	test <- data[,idx]
+	train_outcome <- outcome[-idx]
+	test_outcome <- outcome[idx]
+	train_covar <- covar[-idx,]
+	test_covar <- covar[idx,]
+} else {
+	train <- data
+	test <- val
+	train_outcome <- outcome
+	test_outcome <- val_outcome
+	train_covar <- covar
+	test_covar <- val_covar
+}
+
+## Do empirical controls feature selection
+## NOTE: need to make this user input
+pairs <- empirical_controls(train, 40)
+
+ncv <- 10 # no. cross validation folds (should be user input)
+idxs <- split(sample(1:ncol(train)), rep(1:ncv, each=ncol(train)/ncv))
+rn <- vector("list", ncv)
+
+for(i in 1:ncv){	
+	idx <- idxs[[i]]
+	ktrain <- pairs[,-idx]
+	ktest <- pairs[,idx]
+	ktrain_outcome <- train_outcome[-idx]
+	ktest_outcome <- train_outcome[idx]
+	ktrain_covar <- train_covar[-idx,]
+	ktest_covar <- train_covar[idx,]
+
+	# Let's restrict further...say, top 25 pairs associated with outcome
+	# Also should be user input
+	subidx <- order(rowFtests(ktrain, as.factor(ktrain_outcome)), decreasing=T)[1:25]
+	subktrain <- ktrain[subidx,]
+
+	# Do regression feature selection on ktrain
+	cp <- reg_fs(subktrain, ktrain_outcome, ktrain_covar, npair)
+
+	rn[[i]] <- rownames(subktrain)[cp]
+}
+
+final <- names(sort(table(unlist(rn)), decreasing=T))[1:npair]
+pairtmp <- as.data.frame(t(pairs[final,]))
+pairnames <- paste0("p", 1:npair)
+colnames(pairtmp) <- pairnames
+
+
+# Need covar support here
+tree <- rpart(train_outcome~., data=pairtmp)
+
+p_train <- predict(tree)
+
+test_dm <- as.data.frame(sapply(final, single_pairs, test))
+colnames(test_dm) <- pairnames
+
+
+# Need covar support here
+p_test <- predict(tree, newdata=test_dm)
+
+#tb <- table(p_test > thresh, test_outcome)
+
+#acc <- sum(diag(tb))/sum(tb)
+#sens <- tb[1]/colSums(tb)[1]
+#spec <- tb[4]/colSums(tb)[2]	
+```
+
+Your tree looks like this:
+
+```{r tree}
+drawTreeNodes(tree, digits=2)
+```
+
+Gene pairs in model:
+
+```{r pairnames}
+cat(paste0(pairnames, ": ", final, "\n", collapse="\n"))
+````
+
+Resubstitution and test/validatin ROC curves:
+
+```{r roc, fig.width=5, fig.height=5, fig.show='hold'}
+options(bitmapType="cairo")
+
+lb <- rgb(154, 192, 205, alpha=0.6*255, maxColorValue=255)
+
+roc_train <- plot.roc(train_outcome, p_train,  main=paste0("Training Data ROC (n=",length(train_outcome),")"), legacy.axes=T)
+ci_train <- ci.se(roc_train, progress="none")
+plot(ci_train, type="shape", col=lb)
+
+title <- ifelse(is.null(val), "Test Data ROC", "Validation Data ROC")
+title <- paste0(title, " (n=", length(test_outcome), ")")
+
+roc_test <- plot.roc(test_outcome, p_test,  main=title, legacy.axes=T)
+ci_test <- ci.se(roc_test, progress="none")
+plot(ci_test, type="shape", col=lb)
+```
+
+```{r tail}
+sessionInfo()
+```
