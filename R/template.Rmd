@@ -8,11 +8,6 @@ library(tspreg)
 library(rattle)
 library(pROC)
 library(genefilter)
-source("~/code/reg_fs.R")
-source("~/code/empirical_controls.R")
-source("~/code/fstats.R")
-source("~/code/make_pairs.R")
-source("~/code/single_pairs.R")
 ```
 
 ```{r build}
