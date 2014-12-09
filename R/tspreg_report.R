@@ -20,10 +20,12 @@ library(knitr)
 
 tspreg_report <- function(data, outcome, covar=NULL, val=NULL, val_outcome=NULL, val_covar=NULL, npair=5, filepath=NULL){
 	if(is.null(filepath)){
-		filepath <- paste0(format(Sys.time(), "%y_%m_%d_%H%M%S"), "_output")
+		filepath <- paste0(getwd(),"/",format(Sys.time(), "%y_%m_%d_%H%M%S"), "_output")
+	} else {
+		filepath <- paste0(getwd(), "/", filepath)
 	}
 
-	knit2html("template.Rmd", filepath)
+	knit2html(paste0(.libPaths()[1],"/tspreg/exec/template.Rmd"), filepath)
 }
 
 #tspreg_report(data=exprs(glas_eset), outcome=pData(glas_eset)$FiveYearRecurrence, val=exprs(buyse_eset), val_outcome=pData(buyse_eset)$FiveYearRecurrence, npair=5, filepath="output")
