@@ -25,7 +25,7 @@ tspreg_report <- function(data, outcome, covar=NULL, val=NULL, val_outcome=NULL,
 		filepath <- paste0(getwd(), "/", filepath)
 	}
 
-	knit2html(paste0(.libPaths()[1],"/tspreg/exec/template.Rmd"), filepath)
+	knit2html(paste0(system.file("exec", package="tspreg"),"/template.Rmd"), filepath)
 }
 
 #tspreg_report(data=exprs(glas_eset), outcome=pData(glas_eset)$FiveYearRecurrence, val=exprs(buyse_eset), val_outcome=pData(buyse_eset)$FiveYearRecurrence, npair=5, filepath="output")
