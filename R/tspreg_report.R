@@ -18,7 +18,7 @@
 
 library(knitr)
 
-tspreg_report <- function(data, outcome, covar=NULL, val=NULL, val_outcome=NULL, val_covar=NULL, npair=5, filepath=NULL){
+tspreg_report <- function(data, outcome, covar=NULL, val=NULL, val_outcome=NULL, val_covar=NULL, npair=5, filepath=NULL, title="example"){
 	if(is.null(filepath)){
 		filepath <- paste0(getwd(),"/",format(Sys.time(), "%y_%m_%d_%H%M%S"), "_output")
 	} else {

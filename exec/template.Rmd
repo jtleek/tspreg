@@ -1,8 +1,12 @@
-Building a model using tspreg...
+Top-Scoring Pairs Model Building Report
+---------------------------------------
+`r title`
 
-```{r initialize}
+The following code will build a decision tree model that uses top-scoring pair (TSP) features. First, we set an initial random seed and load the necessary libraries and functions.
+
+```{r initialize, warning=F, messages=F}
 set.seed(47209)
-## Loading necessary libraries
+## Load necessary libraries
 library(rpart)
 library(tspreg)
 library(rattle)
@@ -10,7 +14,17 @@ library(pROC)
 library(genefilter)
 ```
 
-```{r build}
+Data will be split into 3/4 for model training and 1/4 for model testing if an external validataion dataset is not supplied. The model-building procedure has two key steps:
+
+1) Empirical Conrol feature selection - To filter down the initial set of features to a more managable size, we focus on selecting those features that have the potential to make a useful TSP. We break the features up into quantiles and form TSPs by comparing high-variance features to low-variance features within each quantile. This process generates candidate pairs that are non-sparse.
+
+2) Regression-based feature selection: The candidate pairs from step one are further pared down to those that are predictive of the outcome. So that all chosen pairs are not providing the same information about the outcome, we condition on previously chosen pairs through regression. We regress each new candidate pair on the outcome and all previous pairs and select the candidate pair that produces the highest conditioned F-statistic for the outcome. This process is repeated until the desired number of pairs is selected.
+
+We cross-validate step 2 and the building of the decision tree using the TSPs that result from step two. We then build a final model using the pairs that appeared most often across cross-validation folds.
+
+The following code executes this entire procedure.
+
+```{r build, warning=F}
 if(is.null(val)){
 	## Split data into 3/4 train, 1/4 test
 	idx <- sample(1:ncol(data), ncol(data)/4)
@@ -18,8 +32,12 @@ if(is.null(val)){
 	test <- data[,idx]
 	train_outcome <- outcome[-idx]
 	test_outcome <- outcome[idx]
-	train_covar <- covar[-idx,]
-	test_covar <- covar[idx,]
+	if(!is.null(covar)){
+		train_covar <- covar[-idx,]
+		test_covar <- covar[idx,]
+	} else {
+		train_covar <- test_covar <- covar # all NULL
+	}
 } else {
 	train <- data
 	test <- val
@@ -32,69 +50,96 @@ if(is.null(val)){
 ## Do empirical controls feature selection
 ## NOTE: need to make this user input
 pairs <- empirical_controls(train, 40)
+rmp <- which(rowMeans(pairs) == 1 | rowMeans(pairs) == 0) # These paris do not flip at all
+if(length(rmp) > 0){
+	pairs <- pairs[-rmp,]
+}
 
 ncv <- 10 # no. cross validation folds (should be user input)
 idxs <- split(sample(1:ncol(train)), rep(1:ncv, each=ncol(train)/ncv))
-rn <- vector("list", ncv)
+#rn <- vector("list", ncv)
+acc <- vector("numeric", ncv)
 
+# we're going to get an out-of-sample accuracy measure via CV
 for(i in 1:ncv){	
 	idx <- idxs[[i]]
 	ktrain <- pairs[,-idx]
 	ktest <- pairs[,idx]
 	ktrain_outcome <- train_outcome[-idx]
 	ktest_outcome <- train_outcome[idx]
-	ktrain_covar <- train_covar[-idx,]
-	ktest_covar <- train_covar[idx,]
+	if(!is.null(train_covar)){
+		ktrain_covar <- train_covar[-idx,]
+		ktest_covar <- train_covar[idx,]
+	} else {
+		ktrain_covar <- ktest_covar <- train_covar # All null
+	}
 
 	# Let's restrict further...say, top 25 pairs associated with outcome
 	# Also should be user input
-	subidx <- order(rowFtests(ktrain, as.factor(ktrain_outcome)), decreasing=T)[1:25]
-	subktrain <- ktrain[subidx,]
+	#num_out <- 25
+	#subidx <- order(rowFtests(ktrain, as.factor(ktrain_outcome)), decreasing=T)[1:num_out]
+	#subidx <- rowf_fs(ktrain, ktrain_outcome, num_out)
+	#subktrain <- ktrain[subidx,]
 
 	# Do regression feature selection on ktrain
-	cp <- reg_fs(subktrain, ktrain_outcome, ktrain_covar, npair)
+	cp <- reg_fs(ktrain, ktrain_outcome, ktrain_covar, npair)
 
-	rn[[i]] <- rownames(subktrain)[cp]
+	tree <- rpart(ktrain_outcome~., data = as.data.frame(t(ktrain[cp,])))
+	tree <- prune(tree, cp=tree$cptable[which.min(tree$cptable[,"xerror"]),"CP"])
+	preds <- predict(tree, newdata=as.data.frame(t(ktest[cp,])))
+	
+	#rn[[i]] <- rownames(subktrain)[cp]
+	#crude
+	acc[i] <- sum(ifelse(preds > 0.5, 1, 0) == ktest_outcome)/length(ktest_outcome)
 }
 
-final <- names(sort(table(unlist(rn)), decreasing=T))[1:npair]
-pairtmp <- as.data.frame(t(pairs[final,]))
+#final <- names(sort(table(unlist(rn)), decreasing=T))[1:npair]
+#pairtmp <- as.data.frame(t(pairs[final,]))
 pairnames <- paste0("p", 1:npair)
-colnames(pairtmp) <- pairnames
+#colnames(pairtmp) <- pairnames
 
 
 # Need covar support here
+#tree <- rpart(train_outcome~., data=pairtmp)
+
+# Now we do the overall model
+cp_final <- reg_fs(pairs, train_outcome, train_covar, npair)
+pairtmp <- as.data.frame(t(pairs[cp_final,]))
+final_names <- rownames(pairs[cp_final,])
+pairnames <- paste0("p", 1:npair)
+colnames(pairtmp) <- pairnames
 tree <- rpart(train_outcome~., data=pairtmp)
+tree <- prune(tree, cp=tree$cptable[which.min(tree$cptable[,"xerror"]),"CP"])
 
 p_train <- predict(tree)
 
-test_dm <- as.data.frame(sapply(final, single_pairs, test))
+test_dm <- as.data.frame(sapply(final_names, single_pairs, test))
 colnames(test_dm) <- pairnames
 
 
 # Need covar support here
 p_test <- predict(tree, newdata=test_dm)
-
-#tb <- table(p_test > thresh, test_outcome)
-
-#acc <- sum(diag(tb))/sum(tb)
-#sens <- tb[1]/colSums(tb)[1]
-#spec <- tb[4]/colSums(tb)[2]	
 ```
 
-Your tree looks like this:
+Your final decision tree looks like this:
 
-```{r tree}
+```{r tree, warning=F}
 drawTreeNodes(tree, digits=2)
 ```
 
-Gene pairs in model:
+Gene pairs at each node in the model:
 
 ```{r pairnames}
-cat(paste0(pairnames, ": ", final, "\n", collapse="\n"))
+cat(paste0(pairnames, ": ", final_names, "\n", collapse="\n"))
 ````
 
-Resubstitution and test/validatin ROC curves:
+Your predicted out-of-sample accuracy:
+
+```{r acc}
+mean(acc)
+```
+
+Resubstitution and test/validatin ROC curves: 
 
 ```{r roc, fig.width=5, fig.height=5, fig.show='hold'}
 options(bitmapType="cairo")
